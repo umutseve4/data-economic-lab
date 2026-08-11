@@ -1,0 +1,40 @@
+# Secrets and local configuration
+.env
+.env.local
+
+# Raw downloads (never committed)
+data/raw/
+!data/raw/.gitkeep
+
+# Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# Generated reports
+reports/
+!reports/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store

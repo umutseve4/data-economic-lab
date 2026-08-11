@@ -1,0 +1,51 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    env:
+      ECOLAB_SOURCE: sample
+      ECOLAB_LOG_LEVEL: WARNING
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Mypy
+        run: mypy src/ecolab
+
+      - name: Pytest (offline, no API key)
+        run: pytest --cov=ecolab --cov-report=term-missing --cov-branch
+
+      - name: Assert no secret is committed
+        run: |
+          # A committed .env is always a failure.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked by git"; exit 1
+          fi
+          # An assigned key value that is not the documented placeholder is a failure.
+          if grep -rIn --exclude-dir=.git --exclude=README.md \
+               -E 'EVDS_API_KEY=[A-Za-z0-9]{8,}' . \
+             | grep -v 'your_evds_api_key_here'; then
+            echo "::error::a literal EVDS_API_KEY value appears in the tree"; exit 1
+          fi
+          echo "no committed secret found"
