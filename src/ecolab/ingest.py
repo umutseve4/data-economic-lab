@@ -22,7 +22,7 @@ from typing import Any
 import pandas as pd
 import requests
 
-from .config import Settings, SeriesSpec, require_api_key
+from .config import SeriesSpec, Settings, require_api_key
 from .errors import (
     AuthenticationError,
     EcolabError,
@@ -78,8 +78,7 @@ def _request_once(
     status = response.status_code
     if status in _AUTH_STATUS:
         raise AuthenticationError(
-            f"EVDS rejected the API key (HTTP {status}). "
-            "Check EVDS_API_KEY; the value is not logged."
+            f"EVDS rejected the API key (HTTP {status}). Check EVDS_API_KEY; it is not logged."
         )
     if status in _RETRYABLE_STATUS:
         raise TransientNetworkError(f"EVDS returned retryable status HTTP {status}")

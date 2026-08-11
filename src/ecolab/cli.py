@@ -23,7 +23,7 @@ from collections.abc import Sequence
 import pandas as pd
 
 from .analyze import AnalysisResult, run_analysis
-from .config import Settings, SeriesSpec, configure_logging, get_series_specs, load_settings
+from .config import SeriesSpec, Settings, configure_logging, get_series_specs, load_settings
 from .errors import (
     AuthenticationError,
     ConfigError,
