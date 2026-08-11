@@ -223,13 +223,14 @@ TOTAL                      609     39    120     15    92%
 Reading of that table, stated plainly:
 
 - Every module in `src/ecolab` has at least one test, as required.
-- `__main__.py` shows 0 %. It is the four-line `python -m ecolab` entry point. It is
-  covered indirectly — CI invokes `python -m ecolab ...` in `ci/e2e.sh` — but that run
-  is a separate process and is not counted by `pytest-cov`. Its 4 statements are the
-  reason the total is 92 % and not higher.
-- `ingest.py` is the weakest module at 86 %. Its uncovered statements are concentrated
-  in the live-HTTP error branches, which is consistent with the fact that the real EVDS
-  API has never been called.
+- `__main__.py` shows 0 %. It is the four-line `python -m ecolab` entry point. The test
+  suite calls `cli.main()` in-process, which does not execute it. It *is* executed by
+  `ci/e2e.sh`, which runs `python -m ecolab ...` — but that is a separate process and
+  `pytest-cov` does not measure it. Its 4 statements are the single largest reason the
+  total is 92 % and not higher.
+- `ingest.py` is the weakest measured module at 86 %. Its uncovered statements are
+  concentrated in the live-HTTP error branches, which is consistent with the fact that
+  the real EVDS API has never been called.
 
 Test distribution — 62 tests:
 
@@ -239,7 +240,7 @@ Test distribution — 62 tests:
 | `test_config.py` | 13 | config.py, errors.py |
 | `test_validate.py` | 10 | validate.py (each failure mode individually) |
 | `test_analyze.py` | 7 | analyze.py (YoY on a hand-written fixture) |
-| `test_cli.py` | 7 | cli.py, `__main__.py` (end-to-end, sample only) |
+| `test_cli.py` | 7 | cli.py (end-to-end via `cli.main()`, sample data only) |
 | `test_store.py` | 6 | store.py (idempotency) |
 | `test_report.py` | 4 | report.py |
 
