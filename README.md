@@ -195,7 +195,7 @@ CREATE TABLE observations (
 ## 6. Testing
 
 ```bash
-pytest --cov=ecolab --cov-report=term-missing --cov-branch
+pytest --cov=ecolab --cov-report=term-missing --cov-branch --cov-fail-under=90
 ```
 
 **Measured coverage: 92 % — `verified end-to-end`.** Measured, not estimated. The figure
@@ -232,6 +232,9 @@ Reading of that table, stated plainly:
   concentrated in the live-HTTP error branches, which is consistent with the fact that
   the real EVDS API has never been called.
 
+A floor of `--cov-fail-under=90` is enforced in CI, so a coverage regression fails the
+build rather than passing quietly.
+
 Test distribution — 62 tests:
 
 | test file | tests | covers |
@@ -263,6 +266,9 @@ Python 3.12.13, ruff 0.16.2, mypy 1.20.2, pytest 8.4.2.
 | `pytest` | `pytest --cov=ecolab --cov-report=term-missing --cov-branch` | 0 | pass |
 | `sample-drift` | `python scripts/gen_sample.py --check` | 0 | pass |
 | `end-to-end` | `bash ci/e2e.sh` | 0 | pass |
+
+The `pytest` gate has since gained `--cov-fail-under=90`; that flag is `implemented` and
+takes effect on the next run. Everything else in the table is unchanged.
 
 The whole run is offline: no network call, no `EVDS_API_KEY`. The workflow additionally
 asserts that no secret is committed (a tracked `.env`, or an `EVDS_API_KEY=` value that
