@@ -50,8 +50,8 @@ def yoy_change(series: pd.Series, periods: int = MONTHS_PER_YEAR) -> pd.Series:
 
 def rolling_mean(series: pd.Series, window: int = ROLLING_WINDOW) -> pd.Series:
     """Rolling mean over ``window`` periods, requiring a full window."""
-    return series.rolling(window=window, min_periods=window).mean().rename(
-        f"{series.name}_ma{window}"
+    return (
+        series.rolling(window=window, min_periods=window).mean().rename(f"{series.name}_ma{window}")
     )
 
 
