@@ -217,7 +217,9 @@ audited with an in-house AST/token checker approximating the rule set selected i
 the `per-file-ignores` above). Result: `19 files audited, 0 findings`. This covers rule
 violations only. It does **not** emulate `ruff format`, which normalises whitespace,
 line breaks and trailing commas. If CI fails, `ruff format --check .` is the most likely
-step; run `ruff format .` locally and commit the result.
+step. Fix it either by running `ruff format .` locally, or — with no local Python at
+all — from the browser: **Actions → `format` → Run workflow**. That workflow applies
+`ruff format` plus ruff's safe lint fixes and commits the result back.
 
 **Sample data reproducibility: `verified end-to-end`.** `scripts/gen_sample.py`
 regenerates `data/sample/*.csv` from closed-form functions with no randomness. Running
@@ -225,8 +227,28 @@ it leaves the checked-in files byte-identical (MD5 unchanged), and
 `python scripts/gen_sample.py --check` verifies this without writing. CI runs the
 `--check` form so the sample data can never drift from its generator.
 
-**CI status: `not implemented`.** The GitHub Actions workflow has never executed. Do not
-assume it is green until the badge on the repository says so.
+**CI status: `not implemented`.** The GitHub Actions workflows have never executed. Do
+not assume they are green until the Actions tab says so.
+
+### Verifying without a local Python environment
+
+Everything below runs on GitHub's runners; no local install is required.
+
+| goal | where | how |
+|---|---|---|
+| run ruff, mypy, pytest, and the CLI end-to-end | Actions → `ci` | Run workflow |
+| read the measured coverage number | Actions → `ci` → run → **Summary** | under *Measured coverage* |
+| download `report.md` and the PNG charts | same run page | **Artifacts → reports** |
+| fix a `ruff format --check` failure | Actions → `format` | Run workflow |
+
+The `ci` job writes the toolchain versions, the coverage table, the two `ingest` row
+counts (proving idempotency) and the full `analyze` output into the run **Summary**, so
+each number can be read from the browser and pasted into this file. Once a `ci` run is
+green, replace `not implemented` above with the real coverage figure and change this
+line to `verified end-to-end`.
+
+A push made by the `format` workflow uses `GITHUB_TOKEN` and therefore does **not**
+re-trigger `ci`; start `ci` manually afterwards.
 
 ## 7. Results
 
