@@ -1,5 +1,7 @@
 # data-economic-lab — Milestone 1
 
+[![ci](https://github.com/umutseve4/data-economic-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/umutseve4/data-economic-lab/actions/workflows/ci.yml)
+
 A small, reproducible pipeline: ingest → validate → store → analyze → report.
 
 ## 1. Problem statement
@@ -75,6 +77,10 @@ python -m ecolab analyze      # YoY, rolling 3-month mean, correlation
 python -m ecolab report       # reports/report.md + reports/figures/*.png
 ```
 
+All four commands below are `verified end-to-end`: they were executed by the
+`end-to-end` gate of CI run **#18** (commit `ee05414`, exit code 0), offline, with
+`ECOLAB_SOURCE=sample` and no API key present.
+
 ### `validate` — `verified end-to-end`
 
 ```
@@ -85,7 +91,7 @@ OK policy_rate  code=TP.APIFON4           rows=  72 missing=0 range=2019-01..202
 Validation passed for all series.
 ```
 
-### `ingest` — `verified end-to-end` (with `--source sample`)
+### `ingest` — `verified end-to-end` with `--source sample`; `implemented` (unverified) against the live EVDS API
 
 ```
 $ ECOLAB_SOURCE=sample python -m ecolab ingest
@@ -98,8 +104,13 @@ Total rows in database: 216
 ```
 
 Running it a second time prints the same `Total rows in database: 216`. Idempotency is
-enforced by the primary key `(series_code, period)` and an upsert, and is covered by a
-dedicated test.
+enforced by the primary key `(series_code, period)` and an upsert. It is covered by a
+dedicated unit test *and* asserted independently in CI: `ci/e2e.sh` runs `ingest` twice
+and fails the build if the two totals differ.
+
+`python -m ecolab ingest` has **never been executed against the real EVDS API with a
+real key**. The HTTP path, retry/backoff and auth-error handling are unit tested with a
+mocked transport only. Do not treat the live path as verified.
 
 ### `analyze` — `verified end-to-end`
 
@@ -187,7 +198,40 @@ CREATE TABLE observations (
 pytest --cov=ecolab --cov-report=term-missing --cov-branch
 ```
 
-62 tests. Every module in `src/ecolab` has at least one test:
+**Measured coverage: 92 % — `verified end-to-end`.** Measured, not estimated. The figure
+below is the verbatim output of the `pytest` gate in CI run **#18** (commit `ee05414`),
+on Python 3.12.13 / pytest 8.4.2 / pytest-cov, with branch coverage enabled:
+
+```
+Name                     Stmts   Miss Branch BrPart  Cover   Missing
+--------------------------------------------------------------------
+src/ecolab/__init__.py       3      0      0      0   100%
+src/ecolab/__main__.py       4      4      2      0     0%   3-8
+src/ecolab/analyze.py       50      0      6      0   100%
+src/ecolab/cli.py          112      9     14      2    91%   82, 148, 184-185, 187-188, 192-194
+src/ecolab/config.py        89      4     12      0    96%   89-90, 97-98
+src/ecolab/errors.py        13      0      0      0   100%
+src/ecolab/ingest.py       118     13     34      6    86%   75-76, 86, 93, 131->160, 172-174, 193-198, 223, 250
+src/ecolab/report.py        88      3     18      4    93%   55, 58->65, 124, 155
+src/ecolab/store.py         57      4      6      1    92%   65-67, 155
+src/ecolab/validate.py      75      2     28      2    96%   69, 97
+--------------------------------------------------------------------
+TOTAL                      609     39    120     15    92%
+62 passed in 5.92s
+```
+
+Reading of that table, stated plainly:
+
+- Every module in `src/ecolab` has at least one test, as required.
+- `__main__.py` shows 0 %. It is the four-line `python -m ecolab` entry point. It is
+  covered indirectly — CI invokes `python -m ecolab ...` in `ci/e2e.sh` — but that run
+  is a separate process and is not counted by `pytest-cov`. Its 4 statements are the
+  reason the total is 92 % and not higher.
+- `ingest.py` is the weakest module at 86 %. Its uncovered statements are concentrated
+  in the live-HTTP error branches, which is consistent with the fact that the real EVDS
+  API has never been called.
+
+Test distribution — 62 tests:
 
 | test file | tests | covers |
 |---|---|---|
@@ -199,36 +243,40 @@ pytest --cov=ecolab --cov-report=term-missing --cov-branch
 | `test_store.py` | 6 | store.py (idempotency) |
 | `test_report.py` | 4 | report.py |
 
-**Measured coverage: `not implemented`.** `pytest-cov` could not be installed in the
-build environment, so no coverage percentage was measured. No number is claimed here.
-Run the command above to obtain one.
-
-**How the suite was executed: `unit tested`, not under real pytest.** `pytest` itself
-could not be installed in the build environment. The 62 tests were executed with a
-minimal in-house runner implementing the subset of the pytest API the suite uses
-(fixtures, `tmp_path`, `monkeypatch`, `capsys`, `raises`, `approx`); the result was
-`62 passed, 0 failed`. That is not equivalent to a real pytest run. Treat the suite as
-verified only after `pytest` has been run on a normal machine.
-
-**Static lint pre-flight: `implemented`, not run under real ruff.** `ruff` could not be
-installed in the build environment either. As a substitute, the 19 Python files were
-audited with an in-house AST/token checker approximating the rule set selected in
-`pyproject.toml` (`E`, `F`, `I`, `UP`, `B`, `SIM`, `ANN`, `T20`, `line-length = 100`, and
-the `per-file-ignores` above). Result: `19 files audited, 0 findings`. This covers rule
-violations only. It does **not** emulate `ruff format`, which normalises whitespace,
-line breaks and trailing commas. If CI fails, `ruff format --check .` is the most likely
-step. Fix it either by running `ruff format .` locally, or — with no local Python at
-all — from the browser: **Actions → `format` → Run workflow**. That workflow applies
-`ruff format` plus ruff's safe lint fixes and commits the result back.
-
 **Sample data reproducibility: `verified end-to-end`.** `scripts/gen_sample.py`
 regenerates `data/sample/*.csv` from closed-form functions with no randomness. Running
-it leaves the checked-in files byte-identical (MD5 unchanged), and
-`python scripts/gen_sample.py --check` verifies this without writing. CI runs the
-`--check` form so the sample data can never drift from its generator.
+it leaves the checked-in files byte-identical, and `python scripts/gen_sample.py --check`
+verifies this without writing. CI runs the `--check` form as the `sample-drift` gate, so
+the sample data can never drift from its generator.
 
-**CI status: `not implemented`.** The GitHub Actions workflows have never executed. Do
-not assume they are green until the Actions tab says so.
+## 6.1 CI status — `verified end-to-end`
+
+CI run **#18** (commit `ee05414`) passed all six gates. Toolchain as reported by the run:
+Python 3.12.13, ruff 0.16.2, mypy 1.20.2, pytest 8.4.2.
+
+| gate | command | exit code | result |
+|---|---|---|---|
+| `ruff-check` | `ruff check .` | 0 | pass |
+| `ruff-format` | `ruff format --check .` | 0 | pass |
+| `mypy` | `mypy src/ecolab` | 0 | pass |
+| `pytest` | `pytest --cov=ecolab --cov-report=term-missing --cov-branch` | 0 | pass |
+| `sample-drift` | `python scripts/gen_sample.py --check` | 0 | pass |
+| `end-to-end` | `bash ci/e2e.sh` | 0 | pass |
+
+The whole run is offline: no network call, no `EVDS_API_KEY`. The workflow additionally
+asserts that no secret is committed (a tracked `.env`, or an `EVDS_API_KEY=` value that
+is not the placeholder) before running anything else.
+
+`ci/gates.sh` runs every gate without stopping at the first failure and writes each
+gate's full output into the run **Summary**, so a failure is diagnosable from the browser
+without downloading logs. `reports/` is uploaded as a build artifact on every run,
+including failed ones.
+
+Note: `mypy` is invoked as `mypy src/ecolab`, which overrides the `files` setting in
+`pyproject.toml`. Type checking therefore covers `src/ecolab` only, not `tests/`.
+
+A push made by the `format` workflow uses `GITHUB_TOKEN` and therefore does **not**
+re-trigger `ci`; start `ci` manually afterwards.
 
 ### Verifying without a local Python environment
 
@@ -237,18 +285,9 @@ Everything below runs on GitHub's runners; no local install is required.
 | goal | where | how |
 |---|---|---|
 | run ruff, mypy, pytest, and the CLI end-to-end | Actions → `ci` | Run workflow |
-| read the measured coverage number | Actions → `ci` → run → **Summary** | under *Measured coverage* |
+| read every gate's full output and the coverage table | Actions → `ci` → run → **Summary** | expand the gate you want |
 | download `report.md` and the PNG charts | same run page | **Artifacts → reports** |
 | fix a `ruff format --check` failure | Actions → `format` | Run workflow |
-
-The `ci` job writes the toolchain versions, the coverage table, the two `ingest` row
-counts (proving idempotency) and the full `analyze` output into the run **Summary**, so
-each number can be read from the browser and pasted into this file. Once a `ci` run is
-green, replace `not implemented` above with the real coverage figure and change this
-line to `verified end-to-end`.
-
-A push made by the `format` workflow uses `GITHUB_TOKEN` and therefore does **not**
-re-trigger `ci`; start `ci` manually afterwards.
 
 ## 7. Results
 
@@ -261,7 +300,7 @@ Figures written by `report`:
 
 Every chart carries a title, axis labels with units, and a source line. `reports/` is
 generated output and is not committed to the repository — run `python -m ecolab report`
-to produce it.
+to produce it, or download the `reports` artifact from any CI run.
 
 On the sample period 2019-01..2024-12 (n = 72) the level correlations are
 cpi–usdtry 0.9926, cpi–policy_rate 0.8541, usdtry–policy_rate 0.8962. Correlations this
@@ -279,6 +318,9 @@ reports correctly, and nothing beyond that.
   overwrites an earlier value for the same `(series_code, period)`.
 - The inflation series is not seasonally adjusted.
 - The sample period (72 months) is short for any statistical inference.
+- The three EVDS series codes are unverified against the live catalogue.
+- The live EVDS ingestion path has never been executed with a real API key.
+- All results published here are computed on synthetic sample data.
 - Year-over-year change is applied uniformly, including to `policy_rate`. For a rate
   series a percentage-point difference would be the more meaningful transform.
 - Correlations are computed on levels, not on stationary transforms.
@@ -286,6 +328,7 @@ reports correctly, and nothing beyond that.
   are never filled.
 - Monthly aggregation (`last` vs `avg`) is declared per series but is applied to data
   that already arrives monthly; it is not exercised on higher-frequency input.
+- Type checking covers `src/ecolab` only; `tests/` is not type checked.
 
 ## 9. What this project does NOT do
 
