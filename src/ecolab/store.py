@@ -87,16 +87,17 @@ def upsert_observations(
     """Insert or update the observations of one series. Returns rows written."""
     init_db(db_path)
     stamp = (ingested_at or datetime.now(UTC)).isoformat(timespec="seconds")
+    records = frame[["series_code", "period", "value"]].to_dict("records")
     rows = [
         (
-            str(record.series_code),
-            pd.Timestamp(record.period).date().isoformat(),
-            None if pd.isna(record.value) else float(record.value),
+            str(record["series_code"]),
+            pd.Timestamp(record["period"]).date().isoformat(),
+            None if pd.isna(record["value"]) else float(record["value"]),
             unit,
             source,
             stamp,
         )
-        for record in frame.itertuples(index=False)
+        for record in records
     ]
     with connect(db_path) as conn:
         conn.executemany(
@@ -152,6 +153,6 @@ def read_wide(db_path: Path, codes: dict[str, str]) -> pd.DataFrame:
         columns[name] = series.set_index("period")["value"].rename(name)
     if not columns:
         return pd.DataFrame()
-    wide = pd.concat(columns.values(), axis=1).sort_index()
+    wide = pd.concat(list(columns.values()), axis=1).sort_index()
     wide.index.name = "period"
     return wide

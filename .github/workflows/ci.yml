@@ -15,6 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Assert no secret is committed
+        run: |
+          # A committed .env is always a failure.
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked by git"; exit 1
+          fi
+          # An assigned key value that is not the documented placeholder is a failure.
+          if grep -rIn --exclude-dir=.git --exclude-dir=reports --exclude=README.md \
+               -E 'EVDS_API_KEY=[A-Za-z0-9]{8,}' . \
+             | grep -v 'your_evds_api_key_here'; then
+            echo "::error::a literal EVDS_API_KEY value appears in the tree"; exit 1
+          fi
+          echo "no committed secret found"
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -29,64 +43,19 @@ jobs:
         run: |
           {
             echo "### Toolchain"
-            echo '```'
+            echo '```text'
             python --version
             ruff --version
             mypy --version
             pytest --version
             echo '```'
+            echo
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Ruff lint
-        run: ruff check .
-
-      - name: Ruff format check
-        run: ruff format --check .
-
-      - name: Mypy
-        run: mypy src/ecolab
-
-      - name: Pytest (offline, no API key)
-        run: |
-          set -euo pipefail
-          pytest --cov=ecolab --cov-report=term-missing --cov-branch \
-            | tee /tmp/pytest.txt
-          {
-            echo "### Measured coverage"
-            echo "Copy the TOTAL line into README section 6."
-            echo '```'
-            tail -n 25 /tmp/pytest.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Sample data is reproducible
-        run: python scripts/gen_sample.py --check
-
-      - name: End-to-end CLI on sample data (offline)
-        run: |
-          set -euo pipefail
-          python -m ecolab validate
-          python -m ecolab ingest | tee /tmp/run1.txt
-          python -m ecolab ingest | tee /tmp/run2.txt
-          a="$(grep -oP 'Total rows in database: \K[0-9]+' /tmp/run1.txt)"
-          b="$(grep -oP 'Total rows in database: \K[0-9]+' /tmp/run2.txt)"
-          if [ "$a" != "$b" ]; then
-            echo "::error::ingest is not idempotent ($a != $b)"; exit 1
-          fi
-          python -m ecolab analyze | tee /tmp/analyze.txt
-          python -m ecolab report
-          test -f reports/report.md
-          ls reports/figures/*.png >/dev/null
-          n_png="$(ls -1 reports/figures/*.png | wc -l)"
-          {
-            echo "### End-to-end run"
-            echo "- ingest run 1 total rows: \`$a\`"
-            echo "- ingest run 2 total rows: \`$b\` (idempotent)"
-            echo "- figures written: \`$n_png\`"
-            echo '```'
-            cat /tmp/analyze.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+      # Every gate runs, every gate's full output is written to the job summary,
+      # and the step fails once at the end if any gate failed. See ci/gates.sh.
+      - name: Quality gates
+        run: bash ci/gates.sh
 
       - name: Upload report and figures
         if: always()
@@ -95,17 +64,3 @@ jobs:
           name: reports
           path: reports/
           if-no-files-found: warn
-
-      - name: Assert no secret is committed
-        run: |
-          # A committed .env is always a failure.
-          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
-            echo "::error::.env is tracked by git"; exit 1
-          fi
-          # An assigned key value that is not the documented placeholder is a failure.
-          if grep -rIn --exclude-dir=.git --exclude-dir=reports --exclude=README.md \
-               -E 'EVDS_API_KEY=[A-Za-z0-9]{8,}' . \
-             | grep -v 'your_evds_api_key_here'; then
-            echo "::error::a literal EVDS_API_KEY value appears in the tree"; exit 1
-          fi
-          echo "no committed secret found"
