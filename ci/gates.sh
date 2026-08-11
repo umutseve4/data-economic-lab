@@ -51,7 +51,7 @@ gate() {
 gate ruff-check ruff check .
 gate ruff-format ruff format --check .
 gate mypy mypy src/ecolab
-gate pytest pytest --cov=ecolab --cov-report=term-missing --cov-branch
+gate pytest pytest --cov=ecolab --cov-report=term-missing --cov-branch --cov-fail-under=90
 gate sample-drift python scripts/gen_sample.py --check
 gate end-to-end bash ci/e2e.sh
 
