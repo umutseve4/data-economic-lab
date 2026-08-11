@@ -1,0 +1,71 @@
+name: format
+
+# Manual only. Run this from the GitHub UI (Actions -> format -> Run workflow)
+# when `ci` fails on the "Ruff format check" step and you have no local Python
+# environment. It applies `ruff format` plus ruff's *safe* lint fixes and
+# commits the result back to the branch.
+#
+# Note: a push made with GITHUB_TOKEN does not re-trigger `ci`. After this
+# workflow commits, start `ci` manually (Actions -> ci -> Run workflow).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Record ruff version
+        run: |
+          {
+            echo "### Ruff"
+            echo '```'
+            ruff --version
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply ruff format and safe lint fixes
+        run: |
+          ruff format .
+          ruff check --fix .
+
+      - name: Show what changed
+        run: |
+          {
+            echo "### Diff"
+            echo '```diff'
+            git --no-pager diff || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit if anything changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "Nothing to fix: the tree already matches ruff." \
+              >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "style: apply ruff format and safe lint fixes"
+          git push
+          echo "Committed ruff fixes. Now run \`ci\` manually." \
+            >> "$GITHUB_STEP_SUMMARY"
