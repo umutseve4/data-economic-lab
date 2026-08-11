@@ -164,6 +164,9 @@ failure, `4` ingestion failure.
                         all orchestrated by cli.py  (the only module allowed to print)
 ```
 
+`scripts/gen_sample.py` sits outside this chain. It is not part of the pipeline; it only
+regenerates the committed offline fixtures in `data/sample/`.
+
 SQLite schema:
 
 ```sql
@@ -207,10 +210,23 @@ minimal in-house runner implementing the subset of the pytest API the suite uses
 `62 passed, 0 failed`. That is not equivalent to a real pytest run. Treat the suite as
 verified only after `pytest` has been run on a normal machine.
 
-**CI status: `not implemented`.** The GitHub Actions workflow in
-`.github/workflows/ci.yml` has never been executed. `ruff`, `mypy` and `pytest` could
-not be installed in the build environment, so lint, format and type errors may surface
-on the first run. A green badge is not claimed here.
+**Static lint pre-flight: `implemented`, not run under real ruff.** `ruff` could not be
+installed in the build environment either. As a substitute, the 19 Python files were
+audited with an in-house AST/token checker approximating the rule set selected in
+`pyproject.toml` (`E`, `F`, `I`, `UP`, `B`, `SIM`, `ANN`, `T20`, `line-length = 100`, and
+the `per-file-ignores` above). Result: `19 files audited, 0 findings`. This covers rule
+violations only. It does **not** emulate `ruff format`, which normalises whitespace,
+line breaks and trailing commas. If CI fails, `ruff format --check .` is the most likely
+step; run `ruff format .` locally and commit the result.
+
+**Sample data reproducibility: `verified end-to-end`.** `scripts/gen_sample.py`
+regenerates `data/sample/*.csv` from closed-form functions with no randomness. Running
+it leaves the checked-in files byte-identical (MD5 unchanged), and
+`python scripts/gen_sample.py --check` verifies this without writing. CI runs the
+`--check` form so the sample data can never drift from its generator.
+
+**CI status: `not implemented`.** The GitHub Actions workflow has never executed. Do not
+assume it is green until the badge on the repository says so.
 
 ## 7. Results
 
@@ -222,8 +238,8 @@ Figures written by `report`:
 - `reports/figures/yoy_comparison.png`
 
 Every chart carries a title, axis labels with units, and a source line. `reports/` is
-gitignored, so neither `report.md` nor the PNG files are committed; run
-`ECOLAB_SOURCE=sample python -m ecolab report` to regenerate them.
+generated output and is not committed to the repository — run `python -m ecolab report`
+to produce it.
 
 On the sample period 2019-01..2024-12 (n = 72) the level correlations are
 cpi–usdtry 0.9926, cpi–policy_rate 0.8541, usdtry–policy_rate 0.8962. Correlations this
