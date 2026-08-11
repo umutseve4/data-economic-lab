@@ -36,6 +36,9 @@ jobs:
       - name: Pytest (offline, no API key)
         run: pytest --cov=ecolab --cov-report=term-missing --cov-branch
 
+      - name: Sample data is reproducible
+        run: python scripts/gen_sample.py --check
+
       - name: Assert no secret is committed
         run: |
           # A committed .env is always a failure.
