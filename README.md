@@ -298,16 +298,25 @@ Everything below runs on GitHub's runners; no local install is required.
 
 ## 7. Results
 
-Figures written by `report`:
+The four figures below are committed to the repository as compact SVG files under
+[`docs/figures/`](docs/figures/) and regenerated from the sample dataset with a single
+command (`verified end-to-end` in the offline environment):
 
-- `reports/figures/cpi_level.png`
-- `reports/figures/usdtry_level.png`
-- `reports/figures/policy_rate_level.png`
-- `reports/figures/yoy_comparison.png`
+```bash
+PYTHONPATH=src ECOLAB_SOURCE=sample python tools/render_svg_figures.py
+```
 
-Every chart carries a title, axis labels with units, and a source line. `reports/` is
-generated output and is not committed to the repository — run `python -m ecolab report`
-to produce it, or download the `reports` artifact from any CI run.
+![Consumer Price Index — level and 3-month rolling mean, 2019-01..2024-12](docs/figures/cpi_level.svg)
+
+![USD/TRY exchange rate — level and 3-month rolling mean, 2019-01..2024-12](docs/figures/usdtry_level.svg)
+
+![CBRT policy / funding rate — level and 3-month rolling mean, 2019-01..2024-12](docs/figures/policy_rate_level.svg)
+
+![Year-over-year change of all three series, 2020-01..2024-12](docs/figures/yoy_comparison.svg)
+
+The same charts are also produced as PNG by `python -m ecolab report` under
+`reports/figures/` (with title, axis units and a source line on every chart);
+`reports/` stays uncommitted — download it as the `reports` artifact of any CI run.
 
 On the sample period 2019-01..2024-12 (n = 72) the level correlations are
 cpi–usdtry 0.9926, cpi–policy_rate 0.8541, usdtry–policy_rate 0.8962. Correlations this
