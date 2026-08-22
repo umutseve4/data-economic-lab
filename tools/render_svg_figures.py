@@ -52,7 +52,7 @@ def _nice_ticks(lo: float, hi: float, n: int = 5) -> list[float]:
 
 
 def _polyline(x: pd.Series, y: pd.Series, color: str, dash: str = "") -> str:
-    pts = " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(x, y) if pd.notna(b))
+    pts = " ".join(f"{a:.1f},{b:.1f}" for a, b in zip(x, y, strict=True) if pd.notna(b))
     dash_attr = f" stroke-dasharray='{dash}'" if dash else ""
     return (
         f"<polyline points='{pts}' fill='none' stroke='{color}' "
@@ -113,12 +113,12 @@ def render_chart(
             f"stroke='#888888' stroke-width='0.9'/>"
         )
     # series
-    for (col, _label, dash), color in zip(series, COLORS):
+    for (col, _label, dash), color in zip(series, COLORS, strict=False):
         yvals = _scale(frame[col], lo, hi, MT + PH, MT)
         parts.append(_polyline(x, yvals, color, dash))
     # legend
     lx = ML + 10
-    for (col, label, dash), color in zip(series, COLORS):
+    for (_col, label, dash), color in zip(series, COLORS, strict=False):
         dash_attr = f" stroke-dasharray='{dash}'" if dash else ""
         parts.append(
             f"<line x1='{lx}' y1='{MT + 12}' x2='{lx + 22}' y2='{MT + 12}' "
@@ -162,13 +162,13 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     for name, spec in specs.items():
-        df = pd.DataFrame(
-            {"level": wide[name], "roll3": result.rolling[name]}
-        ).dropna(subset=["level"])
+        df = pd.DataFrame({"level": wide[name], "roll3": result.rolling[name]}).dropna(
+            subset=["level"]
+        )
         render_chart(
             df,
             [("level", f"{name} (level)", ""), ("roll3", "3-month rolling mean", "5,3")],
-            f"{spec.label} \u2014 {df.index.min():%Y-%m}..{df.index.max():%Y-%m}",
+            f"{spec.label} — {df.index.min():%Y-%m}..{df.index.max():%Y-%m}",
             spec.unit,
             out_dir / f"{name}_level.svg",
         )
@@ -177,7 +177,7 @@ def main() -> None:
     render_chart(
         yoy,
         [(c, f"{c} YoY", "") for c in yoy.columns],
-        f"Year-over-year change (%) \u2014 {yoy.index.min():%Y-%m}..{yoy.index.max():%Y-%m}",
+        f"Year-over-year change (%) — {yoy.index.min():%Y-%m}..{yoy.index.max():%Y-%m}",
         "percent",
         out_dir / "yoy_comparison.svg",
         zero_line=True,
