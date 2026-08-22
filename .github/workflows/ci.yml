@@ -20,7 +20,7 @@ jobs:
       - name: Assert no secret is committed
         run: |
           # A committed .env is always a failure.
-          if git ls-files --error-unmatch .env > /dev/null 2>&1; then
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
             echo "::error::.env is tracked by git"; exit 1
           fi
           # An assigned key value that is not the documented placeholder is a failure.
