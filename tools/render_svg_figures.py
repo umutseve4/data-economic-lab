@@ -76,8 +76,7 @@ def render_chart(
     lo, hi = lo - pad, hi + pad
 
     parts = [
-        f"<svg xmlns='http://www.w3.org/2000/svg' width='{W}' height='{H}' "
-        f"viewBox='0 0 {W} {H}'>",
+        f"<svg xmlns='http://www.w3.org/2000/svg' width='{W}' height='{H}' viewBox='0 0 {W} {H}'>",
         f"<rect width='{W}' height='{H}' fill='white'/>",
         f"<text x='{ML + PW / 2:.0f}' y='20' text-anchor='middle' font-size='14' "
         f"font-weight='bold' {FONT}>{title}</text>",
@@ -124,9 +123,7 @@ def render_chart(
             f"<line x1='{lx}' y1='{MT + 12}' x2='{lx + 22}' y2='{MT + 12}' "
             f"stroke='{color}' stroke-width='1.8'{dash_attr}/>"
         )
-        parts.append(
-            f"<text x='{lx + 27}' y='{MT + 16}' font-size='10' {FONT}>{label}</text>"
-        )
+        parts.append(f"<text x='{lx + 27}' y='{MT + 16}' font-size='10' {FONT}>{label}</text>")
         lx += 27 + 7 * len(label) + 18
     # axes + footer
     parts.append(
