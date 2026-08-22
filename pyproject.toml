@@ -48,6 +48,7 @@ ignore = ["ANN401"]
 "tests/*" = ["ANN201", "ANN001"]
 "src/ecolab/cli.py" = ["T20"]
 "scripts/*" = ["T20"]
+"tools/render_svg_figures.py" = ["T201"]
 
 [tool.mypy]
 python_version = "3.12"
