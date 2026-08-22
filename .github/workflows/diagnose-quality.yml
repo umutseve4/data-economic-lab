@@ -5,6 +5,9 @@ on:
     branches:
       - fix/quality-baseline
 
+permissions:
+  contents: write
+
 jobs:
   gate:
     name: "diagnose / ${{ matrix.name }}"
@@ -41,3 +44,33 @@ jobs:
           pip install -e ".[dev]"
       - name: Run isolated gate
         run: ${{ matrix.command }}
+
+  canonical-format:
+    name: diagnose / canonical-format
+    runs-on: ubuntu-latest
+    env:
+      ECOLAB_SOURCE: sample
+      ECOLAB_LOG_LEVEL: WARNING
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/quality-baseline
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install Ruff
+        run: python -m pip install "ruff>=0.6,<1.0"
+      - name: Apply and persist canonical format
+        run: |
+          ruff format .
+          if git diff --quiet; then
+            echo "No formatting changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --all
+          git commit -m "style: apply canonical Ruff formatting"
+          git push origin HEAD:fix/quality-baseline
